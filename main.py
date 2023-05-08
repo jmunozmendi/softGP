@@ -6,22 +6,27 @@ from soft_gp import softGP, softGPInfo
 
 def main():
 
+    dataNeck = pd.read_csv("dataNeck.csv")
+    y = dataNeck[['Inclination','Orientation']].to_numpy()
+    x = dataNeck[['M1','M2','M3']].to_numpy()
 
-    gpFK = softGP("FK","DGP1")
 
-    test_data = np.array([-122.908041422489,-81.1222294235976,204.350554253564], ndmin = 2)
+    gpNeck = softGP("FK","AGP", "Neck")
 
-    prediction = gpFK.predict(test_data)
+    prediction = gpNeck.predict(x)
 
-    print(prediction.mean)
+    print("MAE%: ", np.mean(np.abs(prediction.mean - y), axis = 0)/(np.max(y)-np.min(y)))
 
-    gpIK = softGP("IK","DGP1")
 
-    test_data = np.array([-21.8534582838264,29.8675450150361], ndmin = 2)
+    dataArm = pd.read_csv("dataArm.csv")
+    x = dataArm[['Inclination','Orientation']].to_numpy()
+    y = dataArm[['M1','M2','M3']].to_numpy()
 
-    prediction = gpIK.predict(test_data)
+    gpArm = softGP("IK","AGP", "Arm")
 
-    print(prediction.mean)
+    prediction = gpArm.predict(x)
+
+    print("MAE%: ", np.mean(np.abs(prediction.mean - y), axis = 0)/(np.max(y)-np.min(y)))
 
 if __name__ == '__main__':
     main()

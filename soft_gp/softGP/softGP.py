@@ -14,26 +14,37 @@ from ..core import Logger
 from .use_cases import AGP, DGP1, DGP2, DGP3, ExactGP
 from ..entities import softGPInfo
 
-dir = 'soft_gp/softGP/models/'
+
 
 
 # [motor 1, motor 2, motor 3, pitch, yaw]
-means = np.array([-0.652753, -0.035599, 0.634844, -1.911363, 0.100071])
-stds = np.array([118.812632, 113.574488, 113.688108, 21.753780, 26.242482])
+meansArm = np.array([-0.652753, -0.035599, 0.634844, -1.911363, 0.100071])
+stdsArm = np.array([118.812632, 113.574488, 113.688108, 21.753780, 26.242482])
+
+# [M1, M2 ,M3, Inclination, Orientation]
+meansNeck = np.array([0.422745, 0.388243, 0.331195, 24.728547, 177.387627])
+stdsNeck = np.array([2.635532, 2.595948, 2.598489, 12.534071, 106.165696])
+
 
 
 class softGP:
 
-    def __init__(self, kinematics: str, type: str) -> None:
+    def __init__(self, kinematics: str, type: str, device: str) -> None:
 
         if kinematics not in ["IK", "FK"]:
             raise ValueError("kinematics must be FK or IK")
 
         if type not in ["AGP", "DGP1", "DGP2", "DGP3", "ExactGP"]:
             raise ValueError("model must be AGP, DGP1, DGP2, DGP3 or ExactGP")
+        
+        if device not in ["Arm", "Neck"]:
+            raise ValueError("device must be Arm or Neck")
 
         self.kinematics = kinematics
         self.type = type
+        self.device = device
+
+        dir = 'soft_gp/softGP/models/' + device + '/'
 
         if kinematics == "IK":
 
@@ -122,6 +133,17 @@ class softGP:
 
     def predict(self, input_data: np.ndarray) -> softGPInfo:
 
+
+        if self.device == "Arm":
+
+            meanValues = meansArm
+            stdValues = stdsArm
+
+        else:
+
+            meanValues = meansNeck
+            stdValues = stdsNeck
+
         if input_data.ndim != 2:
             raise ValueError("input data must have 2 dimensions")
 
@@ -137,13 +159,14 @@ class softGP:
         
         if self.kinematics == "FK":
 
-            normalized_data = (input_data - means[:3])/stds[:3]
+            normalized_data = (input_data - meanValues[:3])/stdValues[:3]
 
         else:
 
-            normalized_data = (input_data - means[3:5])/stds[3:5]
+            normalized_data = (input_data - meanValues[3:5])/stdValues[3:5]
 
         test_x: torch.Tensor = torch.Tensor(normalized_data).cuda() if torch.cuda.is_available() else torch.Tensor(normalized_data)
+
 
 
         match self.type:
@@ -154,15 +177,15 @@ class softGP:
 
                 if self.kinematics == "FK":
 
-                    predictive_means = predictions.mean.detach().cpu().numpy()*stds[3:5] + means[3:5]
-                    predictive_stds = predictions.stddev.detach().cpu().numpy()*stds[3:5] + means[3:5]
-                    predictive_vars = predictions.variance.detach().cpu().numpy()*stds[3:5] + means[3:5]
+                    predictive_means = predictions.mean.detach().cpu().numpy()*stdValues[3:5] + meanValues[3:5]
+                    predictive_stds = predictions.stddev.detach().cpu().numpy()*stdValues[3:5] + meanValues[3:5]
+                    predictive_vars = predictions.variance.detach().cpu().numpy()*stdValues[3:5] + meanValues[3:5]
 
                 else:
 
-                    predictive_means = predictions.mean.detach().cpu().numpy()*stds[:3] + means[:3]             
-                    predictive_stds = predictions.stddev.detach().cpu().numpy()*stds[:3] + means[:3] 
-                    predictive_vars = predictions.variance.detach().cpu().numpy()*stds[:3] + means[:3] 
+                    predictive_means = predictions.mean.detach().cpu().numpy()*stdValues[:3] + meanValues[:3]             
+                    predictive_stds = predictions.stddev.detach().cpu().numpy()*stdValues[:3] + meanValues[:3] 
+                    predictive_vars = predictions.variance.detach().cpu().numpy()*stdValues[:3] + meanValues[:3] 
 
 
             case "DGP1":
@@ -172,15 +195,15 @@ class softGP:
 
                 if self.kinematics == "FK":
 
-                    predictive_means = mean.numpy()*stds[3:5] + means[3:5]
-                    predictive_stds = std.numpy()*stds[3:5] + means[3:5]
-                    predictive_vars = var.numpy()*stds[3:5] + means[3:5]
+                    predictive_means = mean.numpy()*stdValues[3:5] + meanValues[3:5]
+                    predictive_stds = std.numpy()*stdValues[3:5] + meanValues[3:5]
+                    predictive_vars = var.numpy()*stdValues[3:5] + meanValues[3:5]
 
                 else:
 
-                    predictive_means = mean.numpy()*stds[:3] + means[:3]             
-                    predictive_stds = std.numpy()*stds[:3] + means[:3] 
-                    predictive_vars = var.numpy()*stds[:3] + means[:3]                     
+                    predictive_means = mean.numpy()*stdValues[:3] + meanValues[:3]             
+                    predictive_stds = std.numpy()*stdValues[:3] + meanValues[:3] 
+                    predictive_vars = var.numpy()*stdValues[:3] + meanValues[:3]                     
 
             case "DGP2":
 
@@ -189,15 +212,15 @@ class softGP:
 
                 if self.kinematics == "FK":
 
-                    predictive_means = mean.numpy()*stds[3:5] + means[3:5]
-                    predictive_stds = std.numpy()*stds[3:5] + means[3:5]
-                    predictive_vars = var.numpy()*stds[3:5] + means[3:5]
+                    predictive_means = mean.numpy()*stdValues[3:5] + meanValues[3:5]
+                    predictive_stds = std.numpy()*stdValues[3:5] + meanValues[3:5]
+                    predictive_vars = var.numpy()*stdValues[3:5] + meanValues[3:5]
 
                 else:
 
-                    predictive_means = mean.numpy()*stds[:3] + means[:3]             
-                    predictive_stds = std.numpy()*stds[:3] + means[:3] 
-                    predictive_vars = var.numpy()*stds[:3] + means[:3]  
+                    predictive_means = mean.numpy()*stdValues[:3] + meanValues[:3]             
+                    predictive_stds = std.numpy()*stdValues[:3] + meanValues[:3] 
+                    predictive_vars = var.numpy()*stdValues[:3] + meanValues[:3]  
 
             case "DGP3":
 
@@ -206,15 +229,15 @@ class softGP:
 
                 if self.kinematics == "FK":
 
-                    predictive_means = mean.numpy()*stds[3:5] + means[3:5]
-                    predictive_stds = std.numpy()*stds[3:5] + means[3:5]
-                    predictive_vars = var.numpy()*stds[3:5] + means[3:5]
+                    predictive_means = mean.numpy()*stdValues[3:5] + meanValues[3:5]
+                    predictive_stds = std.numpy()*stdValues[3:5] + meanValues[3:5]
+                    predictive_vars = var.numpy()*stdValues[3:5] + meanValues[3:5]
 
                 else:
 
-                    predictive_means = mean.numpy()*stds[:3] + means[:3]             
-                    predictive_stds = std.numpy()*stds[:3] + means[:3] 
-                    predictive_vars = var.numpy()*stds[:3] + means[:3]  
+                    predictive_means = mean.numpy()*stdValues[:3] + meanValues[:3]             
+                    predictive_stds = std.numpy()*stdValues[:3] + meanValues[:3] 
+                    predictive_vars = var.numpy()*stdValues[:3] + meanValues[:3]  
 
             case "ExactGP":
 
@@ -222,15 +245,15 @@ class softGP:
 
                 if self.kinematics == "FK":
 
-                    predictive_means = predictions.mean.detach().cpu().numpy()*stds[3:5] + means[3:5]
-                    predictive_stds = predictions.stddev.detach().cpu().numpy()*stds[3:5] + means[3:5]
-                    predictive_vars = predictions.variance.detach().cpu().numpy()*stds[3:5] + means[3:5]
+                    predictive_means = predictions.mean.detach().cpu().numpy()*stdValues[3:5] + meanValues[3:5]
+                    predictive_stds = predictions.stddev.detach().cpu().numpy()*stdValues[3:5] + meanValues[3:5]
+                    predictive_vars = predictions.variance.detach().cpu().numpy()*stdValues[3:5] + meanValues[3:5]
 
                 else:
 
-                    predictive_means = predictions.mean.detach().cpu().numpy()*stds[:3] + means[:3]             
-                    predictive_stds = predictions.stddev.detach().cpu().numpy()*stds[:3] + means[:3] 
-                    predictive_vars = predictions.variance.detach().cpu().numpy()*stds[:3] + means[:3] 
+                    predictive_means = predictions.mean.detach().cpu().numpy()*stdValues[:3] + meanValues[:3]             
+                    predictive_stds = predictions.stddev.detach().cpu().numpy()*stdValues[:3] + meanValues[:3] 
+                    predictive_vars = predictions.variance.detach().cpu().numpy()*stdValues[:3] + meanValues[:3] 
 
         return softGPInfo(mean=predictive_means,
                     deviation=predictive_stds,
