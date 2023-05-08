@@ -1,5 +1,5 @@
 # softGP
-Gaussian process models for the forward and inverse kinematics of the soft arm developed in the UC3M RoboticsLab
+Gaussian process models for the forward and inverse kinematics of the soft arm and neck developed in the UC3M RoboticsLab
 
 
 Python 3.10.9
