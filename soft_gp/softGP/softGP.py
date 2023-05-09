@@ -167,93 +167,185 @@ class softGP:
 
         test_x: torch.Tensor = torch.Tensor(normalized_data).cuda() if torch.cuda.is_available() else torch.Tensor(normalized_data)
 
+        test_dataset = TensorDataset(test_x, test_x)
+        test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
+        means = []
+        variances = []
+        lowers = []
+        uppers = []
 
 
         match self.type:
 
             case "AGP":
 
-                predictions = self.likelihood(self.model(test_x))
+                with torch.no_grad():
+
+                    for x_batch, y_batch in test_loader:
+
+                        predictions = self.likelihood(self.model(x_batch))
+                        mean = predictions.mean
+                        lower, upper = predictions.confidence_region()  
+                        var = predictions.variance
+
+                        means.append(mean.cpu().numpy())
+                        variances.append(var.cpu().numpy())
+                        lowers.append(lower.cpu().numpy())
+                        uppers.append(upper.cpu().numpy())
+
+
+                means = np.concatenate(means, axis=0)
+                variances = np.concatenate(variances, axis=0)
+                lowers = np.concatenate(lowers, axis=0)
+                uppers = np.concatenate(uppers, axis=0)
+                stddev = np.sqrt(variances)
 
                 if self.kinematics == "FK":
 
-                    predictive_means = predictions.mean.detach().cpu().numpy()*stdValues[3:5] + meanValues[3:5]
-                    predictive_stds = predictions.stddev.detach().cpu().numpy()*stdValues[3:5] + meanValues[3:5]
-                    predictive_vars = predictions.variance.detach().cpu().numpy()*stdValues[3:5] + meanValues[3:5]
+                    predictive_means = means*stdValues[3:5] + meanValues[3:5]
+                    predictive_stds = stddev*stdValues[3:5] + meanValues[3:5]
+                    predictive_vars = variances*stdValues[3:5] + meanValues[3:5]
 
                 else:
 
-                    predictive_means = predictions.mean.detach().cpu().numpy()*stdValues[:3] + meanValues[:3]             
-                    predictive_stds = predictions.stddev.detach().cpu().numpy()*stdValues[:3] + meanValues[:3] 
-                    predictive_vars = predictions.variance.detach().cpu().numpy()*stdValues[:3] + meanValues[:3] 
+                    predictive_means = means*stdValues[:3] + meanValues[:3]             
+                    predictive_stds = stddev*stdValues[:3] + meanValues[:3] 
+                    predictive_vars = variances*stdValues[:3] + meanValues[:3] 
 
 
             case "DGP1":
 
-                mean, var = self.model.predict(test_x)
-                std = np.sqrt(var)
+                with torch.no_grad():
+
+                    for x_batch, y_batch in test_loader:
+
+                        mean, var = self.model.predict(x_batch)
+                        lower = mean - 2 * var.sqrt()
+                        upper = mean + 2 * var.sqrt()
+
+                        means.append(mean.cpu().numpy())
+                        variances.append(var.cpu().numpy())
+                        lowers.append(lower.cpu().numpy())
+                        uppers.append(upper.cpu().numpy())
+
+                means = np.concatenate(means, axis=0)
+                variances = np.concatenate(variances, axis=0)
+                lowers = np.concatenate(lowers, axis=0)
+                uppers = np.concatenate(uppers, axis=0)
+                stddev = np.sqrt(variances)
 
                 if self.kinematics == "FK":
 
-                    predictive_means = mean.numpy()*stdValues[3:5] + meanValues[3:5]
-                    predictive_stds = std.numpy()*stdValues[3:5] + meanValues[3:5]
-                    predictive_vars = var.numpy()*stdValues[3:5] + meanValues[3:5]
+                    predictive_means = means*stdValues[3:5] + meanValues[3:5]
+                    predictive_stds = stddev*stdValues[3:5] + meanValues[3:5]
+                    predictive_vars = variances*stdValues[3:5] + meanValues[3:5]
 
                 else:
 
-                    predictive_means = mean.numpy()*stdValues[:3] + meanValues[:3]             
-                    predictive_stds = std.numpy()*stdValues[:3] + meanValues[:3] 
-                    predictive_vars = var.numpy()*stdValues[:3] + meanValues[:3]                     
+                    predictive_means = means*stdValues[:3] + meanValues[:3]             
+                    predictive_stds = stddev*stdValues[:3] + meanValues[:3] 
+                    predictive_vars = variances*stdValues[:3] + meanValues[:3]                     
 
             case "DGP2":
 
-                mean, var = self.model.predict(test_x)
-                std = np.sqrt(var)
+                with torch.no_grad():
+
+                    for x_batch, y_batch in test_loader:
+
+                        mean, var = self.model.predict(x_batch)
+                        lower = mean - 2 * var.sqrt()
+                        upper = mean + 2 * var.sqrt()
+
+                        means.append(mean.cpu().numpy())
+                        variances.append(var.cpu().numpy())
+                        lowers.append(lower.cpu().numpy())
+                        uppers.append(upper.cpu().numpy())
+
+                means = np.concatenate(means, axis=0)
+                variances = np.concatenate(variances, axis=0)
+                lowers = np.concatenate(lowers, axis=0)
+                uppers = np.concatenate(uppers, axis=0)
+                stddev = np.sqrt(variances)
 
                 if self.kinematics == "FK":
 
-                    predictive_means = mean.numpy()*stdValues[3:5] + meanValues[3:5]
-                    predictive_stds = std.numpy()*stdValues[3:5] + meanValues[3:5]
-                    predictive_vars = var.numpy()*stdValues[3:5] + meanValues[3:5]
+                    predictive_means = means*stdValues[3:5] + meanValues[3:5]
+                    predictive_stds = stddev*stdValues[3:5] + meanValues[3:5]
+                    predictive_vars = variances*stdValues[3:5] + meanValues[3:5]
 
                 else:
 
-                    predictive_means = mean.numpy()*stdValues[:3] + meanValues[:3]             
-                    predictive_stds = std.numpy()*stdValues[:3] + meanValues[:3] 
-                    predictive_vars = var.numpy()*stdValues[:3] + meanValues[:3]  
+                    predictive_means = means*stdValues[:3] + meanValues[:3]             
+                    predictive_stds = stddev*stdValues[:3] + meanValues[:3] 
+                    predictive_vars = variances*stdValues[:3] + meanValues[:3]  
 
             case "DGP3":
 
-                mean, var = self.model.predict(test_x)
-                std = np.sqrt(var)
+                with torch.no_grad():
+
+                    for x_batch, y_batch in test_loader:
+
+                        mean, var = self.model.predict(x_batch)
+                        lower = mean - 2 * var.sqrt()
+                        upper = mean + 2 * var.sqrt()
+
+                        means.append(mean.cpu().numpy())
+                        variances.append(var.cpu().numpy())
+                        lowers.append(lower.cpu().numpy())
+                        uppers.append(upper.cpu().numpy())
+
+                means = np.concatenate(means, axis=0)
+                variances = np.concatenate(variances, axis=0)
+                lowers = np.concatenate(lowers, axis=0)
+                uppers = np.concatenate(uppers, axis=0)
+                stddev = np.sqrt(variances)
 
                 if self.kinematics == "FK":
 
-                    predictive_means = mean.numpy()*stdValues[3:5] + meanValues[3:5]
-                    predictive_stds = std.numpy()*stdValues[3:5] + meanValues[3:5]
-                    predictive_vars = var.numpy()*stdValues[3:5] + meanValues[3:5]
+                    predictive_means = means*stdValues[3:5] + meanValues[3:5]
+                    predictive_stds = stddev*stdValues[3:5] + meanValues[3:5]
+                    predictive_vars = variances*stdValues[3:5] + meanValues[3:5]
 
                 else:
 
-                    predictive_means = mean.numpy()*stdValues[:3] + meanValues[:3]             
-                    predictive_stds = std.numpy()*stdValues[:3] + meanValues[:3] 
-                    predictive_vars = var.numpy()*stdValues[:3] + meanValues[:3]  
+                    predictive_means = means*stdValues[:3] + meanValues[:3]             
+                    predictive_stds = stddev*stdValues[:3] + meanValues[:3] 
+                    predictive_vars = variances*stdValues[:3] + meanValues[:3]  
 
             case "ExactGP":
 
-                predictions = self.likelihood(self.model(test_x))
+                with torch.no_grad():
+
+                    for x_batch, y_batch in test_loader:
+
+                        predictions = self.likelihood(self.model(test_x))
+                        mean = predictions.mean
+                        lower, upper = predictions.confidence_region()  
+                        var = predictions.variance
+
+                        means.append(mean.cpu().numpy())
+                        variances.append(var.cpu().numpy())
+                        lowers.append(lower.cpu().numpy())
+                        uppers.append(upper.cpu().numpy())
+
+                means = np.concatenate(means, axis=0)
+                variances = np.concatenate(variances, axis=0)
+                lowers = np.concatenate(lowers, axis=0)
+                uppers = np.concatenate(uppers, axis=0)
+                stddev = np.sqrt(variances)
 
                 if self.kinematics == "FK":
 
-                    predictive_means = predictions.mean.detach().cpu().numpy()*stdValues[3:5] + meanValues[3:5]
-                    predictive_stds = predictions.stddev.detach().cpu().numpy()*stdValues[3:5] + meanValues[3:5]
-                    predictive_vars = predictions.variance.detach().cpu().numpy()*stdValues[3:5] + meanValues[3:5]
+                    predictive_means = means*stdValues[3:5] + meanValues[3:5]
+                    predictive_stds = stddev*stdValues[3:5] + meanValues[3:5]
+                    predictive_vars = variances*stdValues[3:5] + meanValues[3:5]
 
                 else:
 
-                    predictive_means = predictions.mean.detach().cpu().numpy()*stdValues[:3] + meanValues[:3]             
-                    predictive_stds = predictions.stddev.detach().cpu().numpy()*stdValues[:3] + meanValues[:3] 
-                    predictive_vars = predictions.variance.detach().cpu().numpy()*stdValues[:3] + meanValues[:3] 
+                    predictive_means = means*stdValues[:3] + meanValues[:3]             
+                    predictive_stds = stddev*stdValues[:3] + meanValues[:3] 
+                    predictive_vars = variances*stdValues[:3] + meanValues[:3] 
 
         return softGPInfo(mean=predictive_means,
                     deviation=predictive_stds,
